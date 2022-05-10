@@ -84,6 +84,7 @@ tiles.onMapLoaded(function (tilemap3) {
     tiles.createSpritesOnTiles(sprites.dungeon.floorDark2, SpriteKind.Enemy)
     tiles.replaceAllTiles(sprites.dungeon.floorDark2, sprites.dungeon.floorDarkDiamond)
     tiles.coverAllTiles(assets.tile`door1`, sprites.dungeon.doorOpenEast)
+    tiles.coverAllTiles(assets.tile`myTile`, sprites.dungeon.doorOpenEast)
 })
 sprites.onOverlap(SpriteKind.Enemy, SpriteKind.Player, function (sprite, otherSprite) {
     if (debouncehit == 0 && blockSettings.readNumber("godMode") == 0) {
@@ -112,6 +113,11 @@ controller.menu.onEvent(ControllerButtonEvent.Pressed, function () {
         "RESUME"
         ], MenuStyle.List, MenuLocation.RightHalf)
     }
+})
+scene.onOverlapTile(SpriteKind.Player, sprites.dungeon.collectibleRedCrystal, function (sprite, location) {
+    music.powerUp.play()
+    tiles.setTileAt(mySprite.tilemapLocation(), sprites.dungeon.floorDarkDiamond)
+    hp = 5
 })
 blockMenu.onMenuOptionSelected(function (option, index) {
     if (menuType == 1) {
@@ -184,6 +190,7 @@ blockMenu.onMenuOptionSelected(function (option, index) {
             if (blockSettings.readNumber("useRadio") == 1) {
                 blockSettings.writeNumber("useRadio", 0)
             } else {
+                music.spooky.play()
                 game.splash("useRadio allows for radio communication with other devices.", "Reset now if you wish to cancel. Else, press A.")
                 blockSettings.writeNumber("useRadio", 1)
             }
@@ -200,6 +207,7 @@ blockMenu.onMenuOptionSelected(function (option, index) {
             if (blockSettings.readNumber("godMode") == 1) {
                 blockSettings.writeNumber("godMode", 0)
             } else {
+                music.spooky.play()
                 game.splash("This kinda ruins the point of the game.", "Reset now if you wish to cancel. Else, press A.")
                 blockSettings.writeNumber("godMode", 1)
             }
@@ -214,6 +222,7 @@ blockMenu.onMenuOptionSelected(function (option, index) {
             ], MenuStyle.List, MenuLocation.BottomHalf)
         } else if (option == "Clear Data") {
             blockMenu.closeMenu()
+            music.buzzer.play()
             game.showLongText("This will not only clear settings, but erase any data as well. Press A to confirm, and RESET to cancel. THIS CANNOT BE UNDONE!", DialogLayout.Full)
             blockSettings.clear()
             game.splash("Data Erased.", "Press A to restart.")
@@ -263,7 +272,10 @@ blockMenu.onMenuOptionSelected(function (option, index) {
     }
 })
 scene.onOverlapTile(SpriteKind.Player, assets.tile`door1`, function (sprite, location) {
-	
+    music.footstep.play()
+    tiles.destroySpritesOfKind(SpriteKind.Enemy)
+    tiles.loadConnectedMap(ConnectionKind.Door1)
+    tiles.placeOnRandomTile(mySprite, assets.tile`myTile`)
 })
 let confirmGiveUp = 0
 let code = ""
@@ -274,7 +286,8 @@ let menuType = 0
 let weapon = ""
 let lvl = 0
 let maxHP = 0
-let hp = 3
+let hp = 0
+hp = 3
 maxHP = 5
 lvl = 1
 weapon = "Fists"
@@ -293,7 +306,7 @@ blockMenu.showMenu([
 "Help",
 "Enter Code"
 ], MenuStyle.List, MenuLocation.BottomHalf)
-let textSprite = textsprite.create("DUNGN BLAST", 15, 1)
+let textSprite = textsprite.create("DUNGN CRAWL", 15, 1)
 let textSprite2 = textsprite.create("Pocket Edition", 15, 1)
 textSprite.setOutline(1, 6)
 textSprite2.setOutline(1, 6)
@@ -302,7 +315,7 @@ textSprite2.setMaxFontHeight(8)
 textSprite.setPosition(70, 13)
 textSprite2.setPosition(116, 53)
 let tilemap1 = tiles.createMap(tilemap`level0`)
-let tilemap2 = tiles.createMap(tilemap`level0`)
+let tilemap2 = tiles.createMap(tilemap`lvl1`)
 while (menuType) {
     pause(100)
 }
