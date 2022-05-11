@@ -80,11 +80,27 @@ controller.B.onEvent(ControllerButtonEvent.Pressed, function () {
     	
     }
 })
+controller.A.onEvent(ControllerButtonEvent.Pressed, function () {
+    if (menuType > 0) {
+    	
+    } else {
+        if (mySprite.tileKindAt(TileDirection.Center, sprites.dungeon.chestClosed)) {
+            if (tiles.getLoadedMap() == tilemap1) {
+                game.showLongText("You know this chest doesn't have anything useful.\\nC'mon, let's get out of this hellhole already.", DialogLayout.Bottom)
+            } else if (false) {
+            	
+            }
+        } else if (mySprite.tileKindAt(TileDirection.Center, sprites.dungeon.chestOpen)) {
+            game.showLongText("This chest is already open. There's nothing else to take.", DialogLayout.Bottom)
+        }
+    }
+})
 tiles.onMapLoaded(function (tilemap3) {
+    tiles.destroySpritesOfKind(SpriteKind.Enemy)
     tiles.createSpritesOnTiles(sprites.dungeon.floorDark2, SpriteKind.Enemy)
     tiles.replaceAllTiles(sprites.dungeon.floorDark2, sprites.dungeon.floorDarkDiamond)
     tiles.coverAllTiles(assets.tile`door1`, sprites.dungeon.doorOpenEast)
-    tiles.coverAllTiles(assets.tile`myTile`, sprites.dungeon.doorOpenEast)
+    tiles.coverAllTiles(assets.tile`myTile`, sprites.dungeon.doorOpenWest)
 })
 sprites.onOverlap(SpriteKind.Enemy, SpriteKind.Player, function (sprite, otherSprite) {
     if (debouncehit == 0 && blockSettings.readNumber("godMode") == 0) {
@@ -101,6 +117,11 @@ sprites.onOverlap(SpriteKind.Enemy, SpriteKind.Player, function (sprite, otherSp
         debouncehit = 0
     }
 })
+controller.player2.onEvent(ControllerEvent.Disconnected, function () {
+    game.splash("P2 Disconnected.", "Killing P2. Restart to readd P2.")
+    P2sprite.startEffect(effects.disintegrate, 500)
+    P2sprite.destroy()
+})
 controller.menu.onEvent(ControllerButtonEvent.Pressed, function () {
     if (!(blockMenu.isMenuOpen()) || !(story.isMenuOpen()) || !(cutsceneActive)) {
         controller.moveSprite(mySprite, 0, 0)
@@ -114,11 +135,53 @@ controller.menu.onEvent(ControllerButtonEvent.Pressed, function () {
         ], MenuStyle.List, MenuLocation.RightHalf)
     }
 })
+controller.player2.onEvent(ControllerEvent.Connected, function () {
+    if (menuType > 0) {
+        game.splash("Extra player detected.", "Autostarting...")
+        story.cancelCurrentCutscene()
+        blockMenu.closeMenu()
+        startGame_with_P2(true)
+    } else {
+        game.splash("Extra player detected.", "Restart to begin multiplayer.")
+    }
+})
 scene.onOverlapTile(SpriteKind.Player, sprites.dungeon.collectibleRedCrystal, function (sprite, location) {
     music.powerUp.play()
     tiles.setTileAt(mySprite.tilemapLocation(), sprites.dungeon.floorDarkDiamond)
     hp = 5
 })
+function startGame_with_P2 (truefalse: boolean) {
+    if (truefalse) {
+        mySprite = sprites.create(assets.image`plr`, SpriteKind.Player)
+        tiles.loadMap(tilemap1)
+        tiles.connectMapById(tilemap1, tilemap2, ConnectionKind.Door1)
+        mySprite.setPosition(28, 52)
+        P2sprite = sprites.create(assets.image`p2`, SpriteKind.Player)
+        P2sprite.setPosition(mySprite.x, mySprite.y)
+        controller.player2.moveSprite(P2sprite, 75, 75)
+        P2sprite.setStayInScreen(true)
+        P2sprite.setFlag(SpriteFlag.BounceOnWall, true)
+        textSprite.setText("")
+        hp = 5
+        textSprite2.setText("")
+        textSprite.setMaxFontHeight(0)
+        textSprite2.setMaxFontHeight(0)
+        scene.cameraFollowSprite(mySprite)
+        statusbar = statusbars.create(20, 4, StatusBarKind.Health)
+        statusbar.attachToSprite(mySprite)
+        statusbar.setStatusBarFlag(StatusBarFlag.SmoothTransition, true)
+        statusbar.setLabel("HP")
+        statusbar.setColor(7, 2)
+        controller.moveSprite(mySprite, 75, 75)
+        statusbar.max = maxHP
+        tiles.createSpritesOnTiles(sprites.dungeon.floorDark2, SpriteKind.Enemy)
+    } else {
+        mySprite = sprites.create(assets.image`plr`, SpriteKind.Player)
+        tiles.loadMap(tilemap1)
+        tiles.connectMapById(tilemap1, tilemap2, ConnectionKind.Door1)
+        mySprite.setPosition(28, 52)
+    }
+}
 blockMenu.onMenuOptionSelected(function (option, index) {
     if (menuType == 1) {
         if (option == "Start Game") {
@@ -251,7 +314,7 @@ blockMenu.onMenuOptionSelected(function (option, index) {
             "MARK",
             "\\nLEVEL " + lvl,
             "\\nMAX HP: " + maxHP,
-            "\\nCUR HP: " + info.life(),
+            "\\nCUR HP: " + hp,
             "\\nWEAPON: " + weapon,
             "\\nPROB OF DYING: yes",
             "\\nPress A to close. (WILL RESUME GAME)"
@@ -273,15 +336,20 @@ blockMenu.onMenuOptionSelected(function (option, index) {
 })
 scene.onOverlapTile(SpriteKind.Player, assets.tile`door1`, function (sprite, location) {
     music.footstep.play()
-    tiles.destroySpritesOfKind(SpriteKind.Enemy)
     tiles.loadConnectedMap(ConnectionKind.Door1)
     tiles.placeOnRandomTile(mySprite, assets.tile`myTile`)
 })
 let confirmGiveUp = 0
 let code = ""
+let P2sprite: Sprite = null
 let debouncehit = 0
+let statusbar: StatusBarSprite = null
 let mySprite: Sprite = null
 let cutsceneActive = 0
+let tilemap2: tiles.WorldMap = null
+let tilemap1: tiles.WorldMap = null
+let textSprite2: TextSprite = null
+let textSprite: TextSprite = null
 let menuType = 0
 let weapon = ""
 let lvl = 0
@@ -306,16 +374,16 @@ blockMenu.showMenu([
 "Help",
 "Enter Code"
 ], MenuStyle.List, MenuLocation.BottomHalf)
-let textSprite = textsprite.create("DUNGN CRAWL", 15, 1)
-let textSprite2 = textsprite.create("Pocket Edition", 15, 1)
+textSprite = textsprite.create("DUNGN CRAWL", 15, 1)
+textSprite2 = textsprite.create("Pocket Edition", 15, 1)
 textSprite.setOutline(1, 6)
 textSprite2.setOutline(1, 6)
 textSprite.setMaxFontHeight(10)
 textSprite2.setMaxFontHeight(8)
 textSprite.setPosition(70, 13)
 textSprite2.setPosition(116, 53)
-let tilemap1 = tiles.createMap(tilemap`level0`)
-let tilemap2 = tiles.createMap(tilemap`lvl1`)
+tilemap1 = tiles.createMap(tilemap`level0`)
+tilemap2 = tiles.createMap(tilemap`lvl1`)
 while (menuType) {
     pause(100)
 }
@@ -432,24 +500,80 @@ if (story.checkLastAnswer("Play the story.")) {
     })
     story.cancelCurrentCutscene()
 } else {
-    mySprite = sprites.create(assets.image`plr`, SpriteKind.Player)
-    tiles.loadMap(tilemap1)
-    tiles.connectMapById(tilemap1, tilemap2, ConnectionKind.Door1)
-    mySprite.setPosition(28, 52)
+    startGame_with_P2(false)
 }
 cutsceneActive = 0
-scene.cameraFollowSprite(mySprite)
-let statusbar = statusbars.create(20, 4, StatusBarKind.Health)
-statusbar.attachToSprite(mySprite)
-statusbar.setStatusBarFlag(StatusBarFlag.SmoothTransition, true)
-statusbar.setLabel("HP")
-statusbar.setColor(7, 2)
-controller.moveSprite(mySprite, 75, 75)
-statusbar.max = maxHP
+if (true) {
+    scene.cameraFollowSprite(mySprite)
+    statusbar = statusbars.create(20, 4, StatusBarKind.Health)
+    statusbar.attachToSprite(mySprite)
+    statusbar.setStatusBarFlag(StatusBarFlag.SmoothTransition, true)
+    statusbar.setLabel("HP")
+    statusbar.setColor(7, 2)
+    controller.moveSprite(mySprite, 75, 75)
+    statusbar.max = maxHP
+}
 forever(function () {
     characterAnimations.loopFrames(
     mySprite,
     assets.animation`downWalk`,
+    100,
+    characterAnimations.rule(Predicate.MovingDown)
+    )
+    characterAnimations.loopFrames(
+    P2sprite,
+    [img`
+        . . . . . . 5 . 5 . . . . . . . 
+        . . . . . f 5 5 5 f f . . . . . 
+        . . . . f 1 5 2 5 1 6 f . . . . 
+        . . . f 1 6 6 6 6 6 1 6 f . . . 
+        . . . f 6 6 f f f f 6 1 f . . . 
+        . . . f 6 f f d d f f 6 f . . . 
+        . . f 6 f d f d d f d f 6 f . . 
+        . . f 6 f d 3 d d 3 d f 6 f . . 
+        . . f 6 6 f d d d d f 6 6 f . . 
+        . f 6 6 f 3 f f f f 3 f 6 6 f . 
+        . . f f d 3 5 3 3 5 3 d f f . . 
+        . . f d d f 3 5 5 3 f d d f . . 
+        . . . f f 3 3 3 3 3 3 f f . . . 
+        . . . f 3 3 5 3 3 5 3 3 f . . . 
+        . . . f f f f f f f f f f . . . 
+        . . . . . f f . . f f . . . . . 
+        `,img`
+        . . . . . . 5 . 5 . . . . . . . 
+        . . . . . f 5 5 5 f f . . . . . 
+        . . . . f 1 5 2 5 1 6 f . . . . 
+        . . . f 1 6 6 6 6 6 1 6 f . . . 
+        . . . f 6 6 f f f f 6 1 f . . . 
+        . . . f 6 f f d d f f 6 f . . . 
+        . . f 6 f d f d d f d f 6 f . . 
+        . . f 6 f d 3 d d 3 d f 6 f . . 
+        . . f 6 6 f d d d d f 6 6 f . . 
+        . f 6 6 f 3 f f f f 3 f 6 6 f . 
+        . . f f 3 3 5 3 3 5 3 d f f . . 
+        . . . f d f 3 5 5 3 f f d f . . 
+        . . . f d f 3 3 3 3 3 f f . . . 
+        . . . f f 3 5 3 3 5 3 3 f . . . 
+        . . . . f f f f f f f f f . . . 
+        . . . . . . . . . f f . . . . . 
+        `,img`
+        . . . . . . 5 . 5 . . . . . . . 
+        . . . . . f 5 5 5 f f . . . . . 
+        . . . . f 1 5 2 5 1 6 f . . . . 
+        . . . f 1 6 6 6 6 6 1 6 f . . . 
+        . . . f 6 6 f f f f 6 1 f . . . 
+        . . . f 6 f f d d f f 6 f . . . 
+        . . f 6 f d f d d f d f 6 f . . 
+        . . f 6 f d 3 d d 3 d f 6 f . . 
+        . . f 6 6 f d d d d f 6 6 f . . 
+        . f 6 6 f 3 f f f f 3 f 6 6 f . 
+        . . f f d 3 5 3 3 5 3 3 f f . . 
+        . . f d f f 3 5 5 3 f d f . . . 
+        . . . f f 3 3 3 3 3 f d f . . . 
+        . . . f 3 3 5 3 3 5 3 f f . . . 
+        . . . f f f f f f f f f . . . . 
+        . . . . . f f . . . . . . . . . 
+        `],
     100,
     characterAnimations.rule(Predicate.MovingDown)
     )
@@ -460,8 +584,122 @@ forever(function () {
     characterAnimations.rule(Predicate.MovingUp)
     )
     characterAnimations.loopFrames(
+    P2sprite,
+    [img`
+        . . . . . . . 5 5 . . . . . . . 
+        . . . . . f 5 5 5 5 f . . . . . 
+        . . . . f 6 6 6 6 6 6 f . . . . 
+        . . . f 6 1 1 1 6 1 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . f f 6 6 6 6 6 6 6 6 f f . . 
+        . f 6 6 6 f 6 6 6 6 f 6 6 6 f . 
+        . . f f f 3 f f f f 3 f f f . . 
+        . . . f d 5 3 3 3 3 5 d f . . . 
+        . . f d d f 3 3 3 3 f d d f . . 
+        . . . f f f 5 3 3 5 f f f . . . 
+        . . . . f 3 3 5 5 3 3 f . . . . 
+        . . . . f 3 3 3 3 3 3 f . . . . 
+        . . . . . f f f f f f . . . . . 
+        `,img`
+        . . . . . . . . . . . . . . . . 
+        . . . . . . . 5 5 . . . . . . . 
+        . . . . . f 5 5 5 5 f . . . . . 
+        . . . . f 6 6 6 6 6 6 f . . . . 
+        . . . f 6 1 1 1 6 1 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . f f 6 6 6 6 6 6 6 6 f f . . 
+        . f 6 6 6 f 6 6 6 6 f 6 6 6 f . 
+        . . f f f 3 f f f f 5 f f f . . 
+        . . . f d f 3 3 3 3 d d f . . . 
+        . . . . f 3 5 3 3 f d d f . . . 
+        . . . . f 3 3 5 5 3 f f . . . . 
+        . . . . f f 3 3 f f . . . . . . 
+        . . . . . . f f . . . . . . . . 
+        `,img`
+        . . . . . . . . . . . . . . . . 
+        . . . . . . . 5 5 . . . . . . . 
+        . . . . . f 5 5 5 5 f . . . . . 
+        . . . . f 6 6 6 6 6 6 f . . . . 
+        . . . f 6 1 1 1 6 1 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . . f 6 6 6 6 6 6 6 6 f . . . 
+        . . f f 6 6 6 6 6 6 6 6 f f . . 
+        . f 6 6 6 f 6 6 6 6 f 6 6 6 f . 
+        . . f f f 5 f f f f 3 f f f . . 
+        . . . f d d 3 3 3 3 f d f . . . 
+        . . . f d d f 3 3 5 3 f . . . . 
+        . . . . f f 3 5 5 3 3 f . . . . 
+        . . . . . . f f 3 3 f f . . . . 
+        . . . . . . . . f f . . . . . . 
+        `],
+    100,
+    characterAnimations.rule(Predicate.MovingUp)
+    )
+    characterAnimations.loopFrames(
     mySprite,
     assets.animation`walkRight`,
+    100,
+    characterAnimations.rule(Predicate.MovingRight)
+    )
+    characterAnimations.loopFrames(
+    P2sprite,
+    [img`
+        . . . . . . . 5 . 5 . . . . . . 
+        . . . . . . f 5 5 5 f . . . . . 
+        . . . . . f 6 5 5 2 6 f . . . . 
+        . . . . f 6 6 1 6 6 6 6 f . . . 
+        . . . . f 6 1 6 6 6 6 6 f . . . 
+        . . . . f 1 6 6 6 d f d f . . . 
+        . . . f f 6 6 6 6 d f d f . . . 
+        . . f 6 f 6 6 6 d d 3 d f . . . 
+        . . . f f 6 f f d d d f . . . . 
+        . . f 6 6 6 f 3 5 f f . . . . . 
+        . . . f f f f f 3 3 5 f . . . . 
+        . . . . . . f d f 3 3 f . . . . 
+        . . . . . . f d f 3 f . . . . . 
+        . . . . . f d f 3 5 3 f . . . . 
+        . . . . . . f f 3 3 f f . . . . 
+        . . . . . . . f f f . . . . . . 
+        `,img`
+        . . . . . . . . . . . . . . . . 
+        . . . . . . 5 . 5 . . . . . . . 
+        . . . . . f 5 5 5 f . . . . . . 
+        . . . . f 6 5 5 2 6 f . . . . . 
+        . . . f 6 6 1 6 6 6 6 f . . . . 
+        . . . f 6 1 6 6 6 6 6 f . . . . 
+        . . . f 1 6 6 6 d f d f . . . . 
+        . . f f 6 6 6 6 d f d f . . . . 
+        . f 6 f 6 6 6 d d 3 d f . . . . 
+        . . f f 6 f f d d d f . . . . . 
+        . f 6 6 f f 3 3 f f . . . . . . 
+        . . f f f f d d d d f . . . . . 
+        . . . . f 3 f d d d f . . . . . 
+        . . . f 3 5 d f f f . . . . . . 
+        . . . . f f 3 3 f f f . . . . . 
+        . . . . f f f f f f f . . . . . 
+        `,img`
+        . . . . . . . . . . . . . . . . 
+        . . . . . . 5 . 5 . . . . . . . 
+        . . . . . f 5 5 5 f . . . . . . 
+        . . . . f 6 5 5 2 6 f . . . . . 
+        . . . f 6 6 1 6 6 6 6 f . . . . 
+        . . . f 6 1 6 6 6 6 6 f . . . . 
+        . . . f 1 6 6 6 d f d f . . . . 
+        . . f f 6 6 6 6 d f d f . . . . 
+        . f 6 f 6 6 6 d d 3 d f . . . . 
+        . . f f 6 f f d d d f . . . . . 
+        . f 6 6 f f 3 3 f f . . . . . . 
+        . . f f f d d 3 3 5 f . . . . . 
+        . . . f d d f 3 3 3 f . . . . . 
+        . . . . f f f 5 3 f . . . . . . 
+        . . . . . f 3 3 3 3 f . . . . . 
+        . . . . . f f f f f . . . . . . 
+        `],
     100,
     characterAnimations.rule(Predicate.MovingRight)
     )
@@ -471,6 +709,68 @@ forever(function () {
     100,
     characterAnimations.rule(Predicate.MovingLeft)
     )
+    characterAnimations.loopFrames(
+    P2sprite,
+    [img`
+        . . . . . . 5 . 5 . . . . . . . 
+        . . . . . f 5 5 5 f . . . . . . 
+        . . . . f 6 2 5 5 6 f . . . . . 
+        . . . f 6 6 6 6 1 6 6 f . . . . 
+        . . . f 6 6 6 6 6 1 6 f . . . . 
+        . . . f d f d 6 6 6 1 f . . . . 
+        . . . f d f d 6 6 6 6 f f . . . 
+        . . . f d 3 d d 6 6 6 f 6 f . . 
+        . . . . f d d d f f 6 f f . . . 
+        . . . . . f f 5 3 f 6 6 6 f . . 
+        . . . . f 5 3 3 f f f f f . . . 
+        . . . . f 3 3 f d f . . . . . . 
+        . . . . . f 3 f d f . . . . . . 
+        . . . . f 3 5 3 f d f . . . . . 
+        . . . . f f 3 3 f f . . . . . . 
+        . . . . . . f f f . . . . . . . 
+        `,img`
+        . . . . . . . . . . . . . . . . 
+        . . . . . . . 5 . 5 . . . . . . 
+        . . . . . . f 5 5 5 f . . . . . 
+        . . . . . f 6 2 5 5 6 f . . . . 
+        . . . . f 6 6 6 6 1 6 6 f . . . 
+        . . . . f 6 6 6 6 6 1 6 f . . . 
+        . . . . f d f d 6 6 6 1 f . . . 
+        . . . . f d f d 6 6 6 6 f f . . 
+        . . . . f d 3 d d 6 6 6 f 6 f . 
+        . . . . . f d d d f f 6 f f . . 
+        . . . . . . f f 3 3 f f 6 6 f . 
+        . . . . . f d d d d f f f f . . 
+        . . . . . f d d d f 3 f . . . . 
+        . . . . . . f f f d 5 3 f . . . 
+        . . . . . f f f 3 3 f f . . . . 
+        . . . . . f f f f f f f . . . . 
+        `,img`
+        . . . . . . . . . . . . . . . . 
+        . . . . . . . 5 . 5 . . . . . . 
+        . . . . . . f 5 5 5 f . . . . . 
+        . . . . . f 6 2 5 5 6 f . . . . 
+        . . . . f 6 6 6 6 1 6 6 f . . . 
+        . . . . f 6 6 6 6 6 1 6 f . . . 
+        . . . . f d f d 6 6 6 1 f . . . 
+        . . . . f d f d 6 6 6 6 f f . . 
+        . . . . f d 3 d d 6 6 6 f 6 f . 
+        . . . . . f d d d f f 6 f f . . 
+        . . . . . . f f 3 3 f f 6 6 f . 
+        . . . . . f 5 3 3 d d f f f . . 
+        . . . . . f 3 3 3 f d d f . . . 
+        . . . . . . f 3 5 f f f . . . . 
+        . . . . . f 3 3 3 3 f . . . . . 
+        . . . . . . f f f f f . . . . . 
+        `],
+    100,
+    characterAnimations.rule(Predicate.MovingLeft)
+    )
+})
+forever(function () {
+    music.playMelody("B A G A G F A C5 ", 120)
+    music.playMelody("G F G A - F E D ", 120)
+    music.playMelody("C5 G B A F A C5 B ", 120)
 })
 game.onUpdateInterval(500, function () {
     statusbar.value = hp
